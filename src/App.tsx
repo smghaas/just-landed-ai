@@ -153,6 +153,21 @@ function App() {
               </div>
             )}
 
+            {/* How it works — shown before user has submitted preferences */}
+            {!prefs && !hasSearched && (
+              <div className="max-w-xl mx-auto bg-white rounded-lg border border-gray-200 p-6 mb-8">
+                <h2 className="text-lg font-bold text-gray-900 mb-1">Find your summer sublet in minutes, not weeks.</h2>
+                <p className="text-sm text-gray-500 mb-4">Here's how Just Landed AI works:</p>
+                <ol className="space-y-3 text-sm text-gray-700 list-decimal list-inside">
+                  <li><strong>Tell us what you need.</strong> Pick your city, set your budget, move-in dates, and must-haves like furnished or in-unit laundry.</li>
+                  <li><strong>We search everywhere.</strong> The app pulls real listings from the Inter-MBA sublease Google Sheet, Craigslist, Zillow, and RentCast — all at once.</li>
+                  <li><strong>AI ranks your matches.</strong> Google Gemini reads every listing, checks your commute, and scores each one on how well it fits. You get a shortlist of 3–5 top picks with plain-English explanations.</li>
+                  <li><strong>Draft a message and reach out.</strong> For any listing you like, the AI writes a personalized outreach message. Edit it, refine it, copy it, send it.</li>
+                </ol>
+                <p className="text-xs text-gray-400 mt-4">Built for MBA and university interns moving to a new city for 10–12 weeks.</p>
+              </div>
+            )}
+
             <PreferencesForm onSubmit={handleSearchSubmit} />
 
             {prefs && (
