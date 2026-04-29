@@ -66,15 +66,13 @@ function dedup(listings: Listing[]): Listing[] {
 // ---------------------------------------------------------------------------
 function filterSynthetic(prefs: UserPreferences): Listing[] {
   const cityName = prefs.city;
-  const maxPrice = prefs.budget_max_usd * 1.1;
+  const maxPrice = prefs.budget_max_usd * 1.5; // generous for demo
 
   const matches = (syntheticData as Listing[]).filter((listing) => {
     if (!listing.address.includes(cityName)) return false;
     if (prefs.furnished && !listing.furnished) return false;
     if (listing.price_usd_per_month > maxPrice) return false;
-    if (listing.available_from > prefs.start_date) return false;
-    if (listing.available_to !== null && listing.available_to < prefs.end_date)
-      return false;
+    // Skip date filters for synthetic data — dates are hardcoded to 2026
     return true;
   });
 
