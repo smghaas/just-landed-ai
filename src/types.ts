@@ -14,7 +14,7 @@ export interface UserPreferences {
 
 export interface Listing {
   id: string;
-  source: "RentCast" | "Synthetic" | "Zillow" | "Craigslist" | "InterMBA";
+  source: "RentCast" | "Synthetic" | "Zillow" | "Craigslist" | "InterMBA" | "Airbnb";
   title: string;
   url: string;
   price_usd_per_month: number;

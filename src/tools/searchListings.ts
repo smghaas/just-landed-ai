@@ -5,6 +5,7 @@ import {
   fetchInterMbaListings,
   fetchCraigslistListings,
   fetchZillowListings,
+  fetchAirbnbListings,
 } from "./sources";
 
 // ---------------------------------------------------------------------------
@@ -188,12 +189,13 @@ export async function searchListings(
   }
 
   // Fetch all real sources in parallel
-  const [rentcastResult, intermbaResult, craigslistResult, zillowResult] =
+  const [rentcastResult, intermbaResult, craigslistResult, zillowResult, airbnbResult] =
     await Promise.allSettled([
       fetchRentCast(prefs),
       fetchInterMbaListings(prefs),
       fetchCraigslistListings(prefs),
       fetchZillowListings(prefs),
+      fetchAirbnbListings(prefs),
     ]);
 
   const rentcast =
@@ -204,6 +206,8 @@ export async function searchListings(
     craigslistResult.status === "fulfilled" ? craigslistResult.value : [];
   const zillow =
     zillowResult.status === "fulfilled" ? zillowResult.value : [];
+  const airbnb =
+    airbnbResult.status === "fulfilled" ? airbnbResult.value : [];
 
   if (rentcastResult.status === "rejected")
     console.warn("RentCast source failed:", rentcastResult.reason);
@@ -213,6 +217,8 @@ export async function searchListings(
     console.warn("Craigslist source failed:", craigslistResult.reason);
   if (zillowResult.status === "rejected")
     console.warn("Zillow source failed:", zillowResult.reason);
+  if (airbnbResult.status === "rejected")
+    console.warn("Airbnb source failed:", airbnbResult.reason);
 
   // Log RAW per-source counts BEFORE filter
   console.log("searchListings RAW counts:", {
@@ -220,6 +226,7 @@ export async function searchListings(
     InterMBA: intermba.length,
     Craigslist: craigslist.length,
     Zillow: zillow.length,
+    Airbnb: airbnb.length,
   });
 
   // Apply loose filters to all sources
@@ -227,6 +234,7 @@ export async function searchListings(
   const filteredIntermba = applyLooseFilters(intermba, prefs);
   const filteredCraigslist = applyLooseFilters(craigslist, prefs);
   const filteredZillow = applyLooseFilters(zillow, prefs);
+  const filteredAirbnb = applyLooseFilters(airbnb, prefs);
 
   // Merge and dedup
   const merged = dedup([
@@ -234,6 +242,7 @@ export async function searchListings(
     ...filteredIntermba,
     ...filteredCraigslist,
     ...filteredZillow,
+    ...filteredAirbnb,
   ]);
 
   // Log FINAL per-source counts AFTER filter

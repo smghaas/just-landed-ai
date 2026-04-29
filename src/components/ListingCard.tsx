@@ -23,6 +23,8 @@ function sourceBadgeColor(source: Listing["source"]): string {
       return "bg-orange-100 text-orange-700";
     case "InterMBA":
       return "bg-purple-100 text-purple-700";
+    case "Airbnb":
+      return "bg-rose-100 text-rose-700";
     default:
       return "bg-gray-100 text-gray-600";
   }
