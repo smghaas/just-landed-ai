@@ -8,11 +8,7 @@ let lastModel = "";
 export function getAgent(): GeminiAgent {
   const { geminiApiKey, model } = useAppStore.getState().settings;
 
-  if (!geminiApiKey) {
-    throw new Error(
-      "Gemini API key not set \u2014 open Settings tab to add one",
-    );
-  }
+  // Allow empty key — Gemini calls will fail but fallback ranking will work
 
   if (!instance || geminiApiKey !== lastKey || model !== lastModel) {
     instance = new GeminiAgent(geminiApiKey, model);

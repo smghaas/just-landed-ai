@@ -10,6 +10,70 @@ import { searchListings } from "../tools/searchListings";
 import { getCommute } from "../tools/getCommute";
 import { SYSTEM_PROMPT } from "./systemPrompt";
 
+/**
+ * Fallback ranking when Gemini is unavailable.
+ * Scores listings using simple heuristics: price fit, commute, amenity matches.
+ */
+function fallbackRank(
+  listings: Listing[],
+  commuteResults: Map<string, CommuteResult>,
+  prefs: UserPreferences,
+): RankedListing[] {
+  const scored = listings.map((listing) => {
+    const commute = commuteResults.get(listing.id);
+    const commuteMin = commute?.duration_min ?? 25;
+    const commuteRoute = commute?.route_summary ?? "estimated";
+
+    let score = 70; // base score
+
+    // Price fit: closer to budget = better (skip if price unknown)
+    if (listing.price_usd_per_month > 0) {
+      const ratio = listing.price_usd_per_month / prefs.budget_max_usd;
+      if (ratio <= 0.8) score += 15;
+      else if (ratio <= 1.0) score += 10;
+      else if (ratio <= 1.1) score += 5;
+      else score -= 10;
+    }
+
+    // Commute: shorter = better
+    if (commuteMin <= prefs.commute_max_min * 0.5) score += 10;
+    else if (commuteMin <= prefs.commute_max_min) score += 5;
+    else score -= 15;
+
+    // Amenity matches
+    const matched = prefs.requirements.filter((r) =>
+      listing.amenities.some((a) => a.includes(r) || r.includes(a)),
+    );
+    score += matched.length * 3;
+
+    // Cap at 0-100
+    score = Math.max(0, Math.min(100, score));
+
+    // Binding constraint
+    let binding: string | null = null;
+    if (listing.price_usd_per_month > prefs.budget_max_usd * 1.1)
+      binding = "Over budget";
+    else if (commuteMin > prefs.commute_max_min)
+      binding = "Commute too long";
+
+    const rationale =
+      listing.price_usd_per_month > 0
+        ? `$${listing.price_usd_per_month.toLocaleString()}/mo, ~${commuteMin} min commute, ${listing.bedrooms} bed`
+        : `~${commuteMin} min commute, ${listing.bedrooms} bed, ${listing.source}`;
+
+    return {
+      listing_id: listing.id,
+      fit_score: score,
+      binding_constraint: binding,
+      rationale_one_liner: rationale,
+      commute_min: commuteMin,
+      commute_route: commuteRoute,
+    };
+  });
+
+  return scored.sort((a, b) => b.fit_score - a.fit_score).slice(0, 5);
+}
+
 export class GeminiAgent {
   private genAI: GoogleGenerativeAI;
   private modelName: string;
@@ -88,25 +152,28 @@ export class GeminiAgent {
       "Rank the top 3–5 listings. Return ONLY a JSON array of RankedListing objects.",
     ].join("\n");
 
-    // 5. Call Gemini
-    let responseText = await this.call(userPrompt);
-
-    // 6. Parse — retry once if invalid
+    // 5. Try Gemini, fall back to local scoring if it fails
     let ranked: RankedListing[];
     try {
-      ranked = this.parseRankedJSON(responseText);
-    } catch {
-      const retryPrompt =
-        responseText +
-        "\n\nRespond ONLY with valid JSON matching the RankedListing[] schema. No prose, no markdown.";
-      responseText = await this.call(retryPrompt);
+      let responseText = await this.call(userPrompt);
+
+      // 6. Parse — retry once if invalid
       try {
         ranked = this.parseRankedJSON(responseText);
       } catch {
-        throw new Error(
-          "Gemini returned invalid JSON after retry. Please try again or switch models in Settings.",
-        );
+        const retryPrompt =
+          responseText +
+          "\n\nRespond ONLY with valid JSON matching the RankedListing[] schema. No prose, no markdown.";
+        responseText = await this.call(retryPrompt);
+        ranked = this.parseRankedJSON(responseText);
       }
+    } catch (err) {
+      console.warn("Gemini unavailable, using local ranking fallback:", err);
+      ranked = fallbackRank(surviving, commuteResults, prefs);
+      this.log(
+        "llm_to_user",
+        "[Gemini unavailable — ranked locally by price, commute, and amenity match]",
+      );
     }
 
     return { listings: surviving, ranked };
@@ -130,7 +197,12 @@ export class GeminiAgent {
       "Return ONLY the message text, no subject line, no markdown.",
     ].join("\n");
 
-    return await this.call(prompt);
+    try {
+      return await this.call(prompt);
+    } catch {
+      // Generate a simple template when Gemini is unavailable
+      return `Hi there!\n\nI came across your listing in ${listing.address} and I'm very interested. I'm an intern moving to the area${prefs.start_date ? ` around ${prefs.start_date}` : ""} and looking for housing${prefs.end_date ? ` through ${prefs.end_date}` : ""}.\n\nWould love to learn more about availability and next steps. Thanks!`;
+    }
   }
 
   async refineMessage(
