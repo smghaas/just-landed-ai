@@ -3,6 +3,7 @@ import { useAppStore } from "../state";
 import type { Listing } from "../types";
 import ListingCard from "./ListingCard";
 import ListingDetailModal from "./ListingDetailModal";
+import ListingsMap from "./ListingsMap";
 
 interface ResultsListProps {
   onDraftOutreach: (listing: Listing) => Promise<string>;
@@ -63,6 +64,15 @@ export default function ResultsList({
         />
         Auto-draft outreach when opening a listing
       </label>
+
+      {/* Interactive map */}
+      {listings.some((l) => l.lat !== 0 && l.lng !== 0) && (
+        <ListingsMap
+          listings={listings}
+          rankedListings={rankedListings}
+          onSelectListing={(id) => setOpenListingId(id)}
+        />
+      )}
 
       {/* Listing cards grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
